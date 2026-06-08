@@ -6,6 +6,102 @@
 <title>ToDoJooob</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- Firebase SDK (compat版: グローバル変数として使える) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyC1bWwbIcexvuc-ZNcrug8hFXY4DQuYbnE",
+    authDomain: "job-quest-e5bb4.firebaseapp.com",
+    projectId: "job-quest-e5bb4",
+    storageBucket: "job-quest-e5bb4.firebasestorage.app",
+    messagingSenderId: "666727999569",
+    appId: "1:666727999569:web:4e5b5eff6312ec6d9bb070",
+    measurementId: "G-87P7XKDY4G"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  // ─── 同期バッジ ───────────────────────────────────────────
+  function updateSyncBadge(state) {
+    const badge = document.getElementById('sync-badge');
+    if (!badge) return;
+    badge.className = 'sync-badge ' + state;
+    const labels = { synced: '☁️ クラウド同期済み', syncing: '🔄 同期中...', offline: '📴 オフライン（ローカル保存中）' };
+    badge.innerHTML = '<span class="sync-dot"></span> ' + (labels[state] || state);
+  }
+  // 通常スクリプトからも呼べるようにwindowに入れておく
+  window._updateSyncBadge = updateSyncBadge;
+
+  // ─── Firestoreへ保存 ──────────────────────────────────────
+  window._saveToFirestore = async function() {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      updateSyncBadge('syncing');
+      await db.collection('users').doc(user.uid).set({
+        entries: window._entries || [],
+        playerExp: window._playerExp || 0,
+        updatedAt: new Date().toISOString()
+      });
+      updateSyncBadge('synced');
+    } catch(err) {
+      console.error('Firestore保存エラー:', err);
+      updateSyncBadge('offline');
+    }
+  };
+
+  // ─── 匿名ログイン & リアルタイム同期 ─────────────────────
+  auth.signInAnonymously().catch(err => {
+    console.warn('Firebase匿名ログイン失敗:', err);
+    updateSyncBadge('offline');
+  });
+
+  auth.onAuthStateChanged(user => {
+    if (!user) return;
+    updateSyncBadge('syncing');
+
+    // リアルタイムリスナー（他デバイスからの変更を即反映）
+    db.collection('users').doc(user.uid).onSnapshot(snap => {
+      if (!snap.exists) { updateSyncBadge('synced'); return; }
+      const data = snap.data();
+
+      if (data.entries) {
+        const remoteJson = JSON.stringify(data.entries);
+        const localJson  = JSON.stringify(window._entries || []);
+        if (remoteJson !== localJson) {
+          window._entries = data.entries;
+          localStorage.setItem('todojoob_entries', remoteJson);
+          // DOMが準備できてから描画
+          if (typeof renderCards === 'function') {
+            entries = window._entries;
+            renderCards();
+          }
+        }
+      }
+      if (data.playerExp !== undefined && data.playerExp !== window._playerExp) {
+        window._playerExp = data.playerExp;
+        playerExp = data.playerExp;
+        localStorage.setItem('playerExp', data.playerExp);
+        if (typeof updateHeroPanel === 'function') updateHeroPanel();
+      }
+      updateSyncBadge('synced');
+    }, err => {
+      console.error('Firestore同期エラー:', err);
+      updateSyncBadge('offline');
+    });
+
+    // 初回起動: Firestoreにデータがない場合だけローカルデータをアップロード
+    db.collection('users').doc(user.uid).get().then(snap => {
+      if (!snap.exists && window._entries && window._entries.length > 0) {
+        window._saveToFirestore();
+      }
+    });
+  });
+</script>
 <style>
   :root {
     --lavender-50: #f5f3ff;
@@ -63,6 +159,25 @@
     margin-top: 4px;
     letter-spacing: 0.1em;
   }
+
+  /* ─── SYNC BADGE ─── */
+  .sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: "Meiryo", sans-serif;
+    transition: all 0.3s;
+  }
+  .sync-badge.synced { background: #d1fae5; color: #059669; border: 1px solid #6ee7b7; }
+  .sync-badge.syncing { background: #dbeafe; color: #2563eb; border: 1px solid #93c5fd; animation: syncPulse 1s ease infinite alternate; }
+  .sync-badge.offline { background: #fff7ed; color: #d97706; border: 1px solid #fcd34d; }
+  @keyframes syncPulse { from { opacity: 0.7; } to { opacity: 1; } }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; }
 
   /* ─── ADD BUTTON ─── */
   .add-btn {
@@ -715,6 +830,7 @@
 </div>
   <div class="app-title">JOB QUEST</div>
   <div class="app-subtitle">～転職勇者　育成ログ～</div>
+  <div id="sync-badge" class="sync-badge offline"><span class="sync-dot"></span> 接続中...</div>
 </header>
 
 <!-- Add button -->
@@ -883,6 +999,11 @@
 
   let editingId = null;
   let currentSource = '';
+
+  // Firebaseとの橋渡し（module scriptから参照できるようにwindowに公開）
+  window._entries = entries;
+  window._playerExp = playerExp;
+
   
 
   function getLevelInfo(exp){
@@ -1308,6 +1429,14 @@
 
   function save() {
     localStorage.setItem('todojoob_entries', JSON.stringify(entries));
+    // windowの参照を更新してFirebase moduleからアクセスできるようにする
+    window._entries = entries;
+    window._playerExp = playerExp;
+    // Firestoreへ保存（Firebase初期化後のみ実行）
+    if (window._saveToFirestore) {
+      window._updateSyncBadge('syncing');
+      window._saveToFirestore();
+    }
   }
 
   // ── Render ────────────────────────────────────────────────

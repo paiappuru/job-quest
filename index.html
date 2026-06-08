@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ToDoJooob</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --lavender-50: #f5f3ff;
+    --lavender-100: #ede9fe;
+    --lavender-200: #ddd6fe;
+    --lavender-300: #c4b5fd;
+    --lavender-400: #a78bfa;
+    --blue-50: #eff6ff;
+    --blue-100: #dbeafe;
+    --blue-200: #bfdbfe;
+    --blue-300: #93c5fd;
+    --blue-400: #60a5fa;
+    --sky-100: #e0f2fe;
+    --sky-200: #bae6fd;
+    --mint-100: #d1fae5;
+    --rose-100: #ffe4e6;
+    --text-dark: #3b3065;
+    --text-mid: #6b5fa0;
+    --text-light: #9d8fca;
+    --card-bg: rgba(255,255,255,0.82);
+    --border: rgba(196,181,253,0.35);
+    --shadow: 0 4px 24px rgba(139,92,246,0.10);
+    --shadow-hover: 0 8px 32px rgba(139,92,246,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Meiryo", "Meiryo", sans-serif;
+    background: linear-gradient(135deg, #e9e4f7 0%, #dbeafe 50%, #e0f2fe 100%);
+    min-height: 100vh;
+    color: var(--text-dark);
+  }
+
+  /* ─── HEADER ─── */
+  .app-header {
+    text-align: center;
+    padding: 36px 20px 20px;
+    position: relative;
+  }
+  .app-title {
+    font-family: 'Segoe UI Black';
+    font-size: clamp(1.5rem, 5vw, 5rem);
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, #7c5cbf, #4f8ef7, #60d0e0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 8px rgba(124,92,191,0.18));
+  }
+  .app-subtitle {
+    font-size: 1.25rem;
+    color: var(--text-light);
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── ADD BUTTON ─── */
+  .add-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto 28px;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 28px;
+    font-size: 0.95rem;
+    font-family: "Meiryo", sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(139,92,246,0.28);
+    transition: all 0.25s;
+  }
+  .add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 24px rgba(139,92,246,0.38);
+  }
+  .add-btn svg { width: 18px; height: 18px; }
+
+  /* ─── EXPORT BUTTON ─── */
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto 28px;
+    background: white;
+    color: var(--text-mid);
+    border: 2px solid var(--lavender-200);
+    border-radius: 50px;
+    padding: 10px 22px;
+    font-size: 0.88rem;
+    font-family: "Meiryo", sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 2px 10px rgba(139,92,246,0.08);
+  }
+  .export-btn:hover {
+    background: var(--lavender-50);
+    border-color: var(--lavender-300);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 18px rgba(139,92,246,0.15);
+  }
+  .export-btn.exporting {
+    animation: pulse 0.6s ease infinite alternate;
+  }
+  @keyframes pulse {
+    from { opacity: 0.7; }
+    to   { opacity: 1; }
+  }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    font-family: "Meiryo", sans-serif;
+    box-shadow: 0 6px 24px rgba(139,92,246,0.3);
+    z-index: 9999;
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.35s;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(80,60,140,0.22);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: rgba(255,255,255,0.96);
+    border-radius: 24px;
+    padding: 32px 28px 28px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 60px rgba(100,60,200,0.18);
+    border: 1px solid var(--lavender-200);
+    animation: modalIn 0.28s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform: scale(0.92) translateY(20px); }
+    to   { opacity:1; transform: scale(1) translateY(0); }
+  }
+  .modal-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .modal-title span { font-size: 1.4rem; }
+
+  /* ─── FORM FIELDS ─── */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-mid);
+    margin-bottom: 5px;
+    letter-spacing: 0.05em;
+  }
+  .field input[type="text"],
+  .field input[type="url"],
+  .field input[type="date"],
+  .field input[type="password"],
+  .field textarea,
+  .field select {
+    width: 100%;
+    padding: 9px 13px;
+    border: 1.5px solid var(--lavender-200);
+    border-radius: 12px;
+    font-family: "Meiryo", sans-serif;
+    font-size: 0.88rem;
+    color: var(--text-dark);
+    background: var(--lavender-50);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--lavender-300);
+    box-shadow: 0 0 0 3px rgba(167,139,250,0.15);
+    background: #fff;
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  /* ─── ROW 2-COL ─── */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* ─── STATUS PILLS ─── */
+  .status-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .status-pill {
+    padding: 5px 13px;
+    border-radius: 50px;
+    border: 1.5px solid var(--lavender-200);
+    background: var(--lavender-50);
+    color: var(--text-mid);
+    font-size: 0.78rem;
+    font-family: "Meiryo", sans-serif;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .status-pill:hover { border-color: var(--lavender-300); background: var(--lavender-100); }
+  .status-pill.active {
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    border-color: transparent;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(139,92,246,0.25);
+  }
+
+  /* ─── SOURCE BUTTONS (with star anim) ─── */
+  .source-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+  .source-btn {
+    padding: 5px 13px;
+    border-radius: 50px;
+    border: 1.5px solid var(--blue-200);
+    background: var(--blue-50);
+    color: #4a7ec9;
+    font-size: 0.78rem;
+    font-family: "Meiryo", sans-serif;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    white-space: nowrap;
+  }
+  .source-btn:hover { border-color: var(--blue-300); background: var(--blue-100); }
+  .source-btn.active {
+    background: linear-gradient(135deg, #60a5fa, #38bdf8);
+    border-color: transparent;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(96,165,250,0.28);
+  }
+  .star-pop {
+    position: absolute;
+    top: -18px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.1rem;
+    pointer-events: none;
+    opacity: 0;
+    animation: none;
+  }
+  .star-pop.pop {
+    animation: starPop 0.7s ease forwards;
+  }
+  @keyframes starPop {
+    0%   { opacity:0; transform: translateX(-50%) scale(0.5) translateY(0); }
+    30%  { opacity:1; transform: translateX(-50%) scale(1.4) translateY(-8px); }
+    70%  { opacity:1; transform: translateX(-50%) scale(1) translateY(-14px); }
+    100% { opacity:0; transform: translateX(-50%) scale(0.8) translateY(-20px); }
+  }
+  .source-other-input {
+    padding: 5px 11px;
+    border-radius: 50px;
+    border: 1.5px dashed var(--blue-200);
+    background: var(--blue-50);
+    color: #4a7ec9;
+    font-size: 0.78rem;
+    font-family: "Meiryo", sans-serif;
+    outline: none;
+    width: 110px;
+    transition: border-color 0.2s;
+  }
+  .source-other-input:focus { border-color: var(--blue-400); background: #fff; }
+  .source-other-input::placeholder { color: #93c5fd; }
+
+  /* ─── INTERVIEW TOGGLE ─── */
+  .interview-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .toggle-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-mid);
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle-switch {
+    position: relative;
+    width: 42px; height: 24px;
+  }
+  .toggle-switch input { display: none; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--lavender-200);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: background 0.22s;
+  }
+  .toggle-thumb {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+    transition: transform 0.22s;
+    pointer-events: none;
+  }
+  .toggle-switch input:checked ~ .toggle-track { background: linear-gradient(135deg, #a78bfa, #60a5fa); }
+  .toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform: translateX(18px); }
+
+  .interview-date-field {
+    display: none;
+    animation: fadeIn 0.22s;
+  }
+  .interview-date-field.show { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ─── MODAL ACTIONS ─── */
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+    justify-content: flex-end;
+  }
+  .btn-cancel {
+    padding: 9px 22px;
+    border-radius: 50px;
+    border: 1.5px solid var(--lavender-200);
+    background: white;
+    color: var(--text-mid);
+    font-family: "Meiryo", sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-cancel:hover { background: var(--lavender-50); }
+  .btn-save {
+    padding: 9px 26px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    color: white;
+    font-family: "Meiryo", sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 14px rgba(139,92,246,0.25);
+    transition: all 0.2s;
+  }
+  .btn-save:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(139,92,246,0.35); }
+
+  /* ─── KANBAN BOARD ─── */
+  .board-wrap {
+    padding: 0 16px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Filter & stats bar */
+  .board-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    padding: 5px 14px;
+    border-radius: 50px;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid var(--lavender-200);
+    font-size: 0.78rem;
+    color: var(--text-mid);
+    font-weight: 600;
+  }
+  .stat-chip b { color: var(--text-dark); }
+
+  .filter-select {
+    padding: 5px 12px;
+    border-radius: 50px;
+    border: 1.5px solid var(--lavender-200);
+    background: rgba(255,255,255,0.8);
+    font-family: "Meiryo", sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-mid);
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* ─── CARDS GRID ─── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 12px;
+  }
+
+  .company-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 14px 16px 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    transition: all 0.22s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .company-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #a78bfa, #60a5fa, #38bdf8);
+    border-radius: 18px 18px 0 0;
+  }
+  .company-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--lavender-300);
+  }
+
+  /* Status color accent */
+  .company-card[data-status="内定"]::before { background: linear-gradient(90deg, #34d399, #6ee7b7); }
+  .company-card[data-status="見送り"]::before { background: linear-gradient(90deg, #f9a8d4, #fca5a5); }
+  .company-card[data-status="最終面接"]::before { background: linear-gradient(90deg, #fbbf24, #f97316); }
+  .company-card[data-status="興味あり"]::before { background: linear-gradient(90deg, #c4b5fd, #ddd6fe); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .card-company {
+    font-size: 0.97rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.3;
+  }
+  .card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .card-icon-btn {
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    border: none;
+    background: var(--lavender-100);
+    color: var(--text-mid);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    font-size: 0.75rem;
+  }
+  .card-icon-btn:hover { background: var(--lavender-200); }
+  .card-icon-btn.del:hover { background: #ffe4e6; color: #f43f5e; }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  .tag {
+    padding: 2px 9px;
+    border-radius: 50px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tag-status {
+    background: var(--lavender-100);
+    color: var(--text-mid);
+    border: 1px solid var(--lavender-200);
+  }
+  .tag-status.内定 { background: var(--mint-100); color: #059669; border-color: #6ee7b7; }
+  .tag-status.見送り { background: var(--rose-100); color: #e11d48; border-color: #fca5a5; }
+  .tag-status.最終面接 { background: #fef9c3; color: #b45309; border-color: #fde68a; }
+  .tag-source { background: var(--blue-100); color: #2563eb; border: 1px solid var(--blue-200); }
+  .tag-interview { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; font-size: 0.68rem; }
+
+  .card-meta {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .card-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .card-meta-row a {
+    color: #60a5fa;
+    text-decoration: none;
+    font-size: 0.72rem;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-meta-row a:hover { text-decoration: underline; }
+
+  .card-memo {
+    margin-top: 7px;
+    padding: 6px 9px;
+    background: var(--lavender-50);
+    border-radius: 8px;
+    font-size: 0.72rem;
+    color: var(--text-mid);
+    border-left: 2px solid var(--lavender-300);
+    line-height: 1.5;
+    max-height: 52px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  /* Empty state */
+  .empty-state {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-light);
+  }
+  .empty-state .emoji { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state p { font-size: 0.95rem; }
+
+  /* ─── DECORATIVE BLOBS ─── */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob1 { width: 400px; height: 400px; background: #a78bfa; top: -80px; right: -80px; }
+  .blob2 { width: 350px; height: 350px; background: #60a5fa; bottom: -60px; left: -60px; }
+  .blob3 { width: 250px; height: 250px; background: #38bdf8; top: 40%; left: 30%; }
+
+  /* Everything above blobs */
+  .app-header, .board-wrap, .add-btn-wrap { position: relative; z-index: 1; }
+
+  .add-btn-wrap { text-align: center; }
+
+  /* Password visibility toggle */
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 36px; }
+  .pw-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-light); font-size: 1rem; padding: 0;
+  }
+
+  /* Divider */
+  .field-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--lavender-200), transparent);
+    margin: 18px 0;
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-light);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .hero-panel{
+    max-width:500px;
+    margin:20px auto;
+    padding:18px;
+    background:rgba(255,255,255,.85);
+    border-radius:20px;
+    box-shadow:0 4px 15px rgba(0,0,0,.08);
+}
+
+.hero-title{
+    font-size:20px;
+    font-weight:bold;
+    margin-bottom:12px;
+}
+
+.exp-bar{
+    height:14px;
+    background:#ddd;
+    border-radius:999px;
+    overflow:hidden;
+}
+
+.exp-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(
+        90deg,
+        #60a5fa,
+        #a78bfa
+    );
+    transition:.5s;
+}
+
+.exp-text{
+    margin-top:8px;
+    font-size:13px;
+}
+
+#cat-secretary{
+    position:fixed;
+    right:25px;
+    bottom:25px;
+    font-size:48px;
+    cursor:pointer;
+    z-index:999;
+}
+
+#cat-message{
+    position:absolute;
+    bottom:60px;
+    right:0;
+    width:250px;
+    background:white;
+    border-radius:15px;
+    padding:12px;
+    box-shadow:0 4px 15px rgba(0,0,0,.15);
+    font-size:13px;
+    display:none;
+}
+
+#cat-secretary:hover #cat-message{
+    display:block;
+}
+
+  @media (max-width: 500px) {
+    .modal { padding: 22px 16px 20px; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Decorative blobs -->
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+
+<!-- Header -->
+<header class="app-header">
+  <div class="hero-panel">
+  <div class="hero-title">
+    ⚔️ Lv.<span id="hero-level">1</span>
+    <span id="hero-rank">見習い冒険者</span>
+  </div>
+
+  <div class="exp-bar">
+    <div class="exp-fill" id="exp-fill"></div>
+  </div>
+
+  <div class="exp-text">
+    EXP <span id="exp-current">0</span> /
+    <span id="exp-next">100</span>
+  </div>
+</div>
+  <div class="app-title">JOB QUEST</div>
+  <div class="app-subtitle">～転職勇者　育成ログ～</div>
+</header>
+
+<!-- Add button -->
+<div class="add-btn-wrap" style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+  <button class="add-btn" onclick="openModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    企業を追加する
+  </button>
+  <button class="export-btn" id="export-btn" onclick="exportToExcel()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    Excelエクスポート
+  </button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Board -->
+<div class="board-wrap">
+  <div class="board-topbar">
+    <div class="stat-chip" id="stat-total">合計 <b>0</b> 社</div>
+    <div class="stat-chip" id="stat-active">選考中 <b>0</b> 社</div>
+    <div class="stat-chip" id="stat-offer">内定 <b>0</b> 社</div>
+    <select class="filter-select" id="filter-status" onchange="renderCards()">
+      <option value="">すべての状況</option>
+      <option>興味あり</option>
+      <option>エントリー済み</option>
+      <option>カジュアル面談</option>
+      <option>WEBテスト</option>
+      <option>一次面接</option>
+      <option>二次面接</option>
+      <option>最終面接</option>
+      <option>内定</option>
+      <option>見送り</option>
+    </select>
+  </div>
+  <div class="cards-grid" id="cards-grid">
+    <div class="empty-state">
+      <div class="emoji">🍍</div>
+      <p>まだ企業が登録されていません<br>「企業を追加する」から始めましょう！</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="overlayClick(event)">
+  <div class="modal" id="modal">
+    <div class="modal-title"><span>🏢</span> <span id="modal-title-text">企業を追加</span></div>
+
+    <!-- Company name -->
+    <div class="field">
+      <label>企業名 *</label>
+      <input type="text" id="f-name" placeholder="例：株式会社〇〇" />
+    </div>
+
+    <!-- URL + account row -->
+    <div class="field-row">
+      <div class="field" style="margin-bottom:0">
+        <label>企業ホームページ</label>
+        <input type="url" id="f-url" placeholder="https://..." />
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>求人ページURL</label>
+        <input type="url" id="f-job-url" placeholder="https://..." />
+      </div>
+    </div>
+
+    <div class="field-divider"></div>
+
+    <!-- Account / PW -->
+    <div class="section-label">🔑 アカウント情報</div>
+    <div class="field-row">
+      <div class="field" style="margin-bottom:0">
+        <label>メールアドレス / ID</label>
+        <input type="text" id="f-account" placeholder="example@email.com" />
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>パスワード</label>
+        <div class="pw-wrap">
+          <input type="password" id="f-password" placeholder="••••••••" />
+          <button class="pw-toggle" onclick="togglePw()" type="button" id="pw-toggle-btn">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field-divider"></div>
+
+    <!-- Source -->
+    <div class="section-label">🥔情報源</div>
+    <div class="field" style="margin-bottom:0">
+      <div class="source-btns" id="source-btns">
+        <button class="source-btn" onclick="selectSource(this,'LinkedIn')">LinkedIn</button>
+        <button class="source-btn" onclick="selectSource(this,'ビズリーチ')">ビズリーチ</button>
+        <button class="source-btn" onclick="selectSource(this,'マイナビ')">マイナビ</button>
+        <button class="source-btn" onclick="selectSource(this,'リクナビ')">リクナビ</button>
+        <button class="source-btn" onclick="selectSource(this,'エン転職')">エン転職</button>
+        <button class="source-btn" onclick="selectSource(this,'doda')">doda</button>
+        <button class="source-btn" onclick="selectSource(this,'エージェント経由')">エージェント経由</button>
+        <input class="source-other-input" id="f-source-other" type="text" placeholder="ほか（入力）" oninput="sourceOtherInput(this)" />
+      </div>
+    </div>
+
+    <div class="field-divider"></div>
+
+    <!-- Date + Status -->
+    <div class="section-label">📅 選考状況</div>
+    <div class="field-row">
+      <div class="field" style="margin-bottom:0">
+        <label>応募日</label>
+        <input type="date" id="f-apply-date" />
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>選考進捗状況</label>
+        <div class="status-pills" id="status-pills">
+          <button class="status-pill" onclick="selectStatus(this,'興味あり')">興味あり</button>
+          <button class="status-pill" onclick="selectStatus(this,'エントリー済み')">エントリー済み</button>
+          <button class="status-pill" onclick="selectStatus(this,'カジュアル面談')">カジュアル面談</button>
+          <button class="status-pill" onclick="selectStatus(this,'WEBテスト')">WEBテスト</button>
+          <button class="status-pill" onclick="selectStatus(this,'一次面接')">一次面接</button>
+          <button class="status-pill" onclick="selectStatus(this,'二次面接')">二次面接</button>
+          <button class="status-pill" onclick="selectStatus(this,'最終面接')">最終面接</button>
+          <button class="status-pill active" onclick="selectStatus(this,'内定')">内定</button>
+          <button class="status-pill" onclick="selectStatus(this,'見送り')">見送り</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interview toggle -->
+    <div style="margin-top:14px;">
+      <div class="interview-row">
+        <label class="toggle-label" for="f-has-interview">面接予定あり</label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="f-has-interview" onchange="toggleInterview(this)" />
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+      </div>
+      <div class="interview-date-field" id="interview-date-field">
+        <div class="field" style="margin-bottom:0">
+          <label>面接日</label>
+          <input type="date" id="f-interview-date" />
+        </div>
+      </div>
+    </div>
+
+    <div class="field-divider"></div>
+
+    <!-- Memo -->
+    <div class="section-label">📝 自由メモ</div>
+    <div class="field">
+      <textarea id="f-memo" placeholder="気になった点、連絡先、面接官の名前など自由に記入..."></textarea>
+    </div>
+
+    <!-- Actions -->
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveEntry()">保存する 💾</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let entries = JSON.parse(localStorage.getItem('todojoob_entries') || '[]');
+
+  let playerExp =
+    Number(localStorage.getItem('playerExp') || 0);
+
+  let editingId = null;
+  let currentSource = '';
+  
+
+  function getLevelInfo(exp){
+
+  const levels = [
+
+     {exp:0,name:"見習い冒険者"},
+    {exp:100,name:"駆け出し冒険者"},
+
+    {exp:300,name:"駆け出し勇者"},
+
+    {exp:700,name:"転職ハンター"},
+
+    {exp:1500,name:"企業攻略士"},
+
+    {exp:3000,name:"面接マスター"},
+
+    {exp:5000,name:"内定収集家"},
+
+    {exp:8000,name:"伝説の転職勇者"}
+   
+   
+  ];
+
+  let current = levels[0];
+  let next = null;
+  let level = 1;
+
+  for(let i=0;i<levels.length;i++){
+
+    if(exp >= levels[i].exp){
+      current = levels[i];
+      level = i+1;
+    }
+
+    if(exp < levels[i].exp){
+      next = levels[i];
+      break;
+    }
+
+  }
+
+  if(!next){
+    next = {
+      exp: current.exp + 2000
+    };
+  }
+
+  return {
+    level,
+    title: current.name,
+    currentExp: exp,
+    currentLevelExp: current.exp,
+    nextLevelExp: next.exp
+  };
+
+}
+  function updateHeroPanel(){
+
+  const hero =
+    getLevelInfo(playerExp);
+
+  document.getElementById(
+    "hero-level"
+  ).textContent =
+    hero.level;
+
+  document.getElementById(
+    "hero-rank"
+  ).textContent =
+    hero.title;
+
+  document.getElementById(
+    "exp-current"
+  ).textContent =
+    hero.currentExp;
+
+  document.getElementById(
+    "exp-next"
+  ).textContent =
+    hero.nextLevelExp;
+
+  const progress =
+  ((hero.currentExp
+    - hero.currentLevelExp)
+
+  /
+
+  (hero.nextLevelExp
+    - hero.currentLevelExp))
+
+  *100;
+
+  document.getElementById(
+    "exp-fill"
+  ).style.width =
+    progress + "%";
+}
+
+  function checkAchievements(){
+
+ const count =
+ entries.length;
+
+ if(
+ count >= 1 &&
+ !localStorage.getItem("achv1")
+ ){
+
+   localStorage.setItem(
+     "achv1",
+     "1"
+   );
+
+   showCatMessage(
+   "🏆 初応募達成！"
+   );
+ }
+
+ if(
+ count >= 10 &&
+ !localStorage.getItem("achv10")
+ ){
+
+   localStorage.setItem(
+     "achv10",
+     "1"
+   );
+
+   showCatMessage(
+   "🏆 10社応募達成！"
+   );
+ }
+
+ if(
+ count >= 50 &&
+ !localStorage.getItem("achv50")
+ ){
+
+   localStorage.setItem(
+     "achv50",
+     "1"
+   );
+
+   showCatMessage(
+   "🏆 50社応募達成！"
+   );
+ }
+
+}
+
+  // ── Status pills ──────────────────────────────────────────
+  function expForStatus(status){
+
+  switch(status){
+
+    case "興味あり":
+      return 1;
+
+    case "エントリー済み":
+      return 5;
+
+    case "カジュアル面談":
+      return 7;
+
+    case "WEBテスト":
+      return 10;
+
+    case "一次面接":
+      return 20;
+
+    case "二次面接":
+      return 35;
+
+    case "最終面接":
+      return 50;
+
+    case "内定":
+      return 100;
+
+    case "見送り":
+      return 15;
+
+    default:
+      return 0;
+  }
+}
+  function selectStatus(btn, val) {
+    document.querySelectorAll('#status-pills .status-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function getStatus() {
+    const a = document.querySelector('#status-pills .status-pill.active');
+    return a ? a.textContent : '';
+  }
+
+  function setStatus(val) {
+    document.querySelectorAll('#status-pills .status-pill').forEach(p => {
+      p.classList.toggle('active', p.textContent === val);
+    });
+  }
+
+  // ── Source buttons ────────────────────────────────────────
+  function selectSource(btn, val) {
+    const wasActive = btn.classList.contains('active');
+    document.querySelectorAll('#source-btns .source-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('f-source-other').value = '';
+
+    if (!wasActive) {
+      btn.classList.add('active');
+      currentSource = val;
+      // Star animation
+      const star = btn.querySelector('.star-pop');
+      star.classList.remove('pop');
+      void star.offsetWidth; // reflow
+      star.classList.add('pop');
+    } else {
+      currentSource = '';
+    }
+  }
+
+  function sourceOtherInput(input) {
+    document.querySelectorAll('#source-btns .source-btn').forEach(b => b.classList.remove('active'));
+    currentSource = input.value;
+  }
+
+  function getSource() {
+    const activeBtn = document.querySelector('#source-btns .source-btn.active');
+    if (activeBtn) return activeBtn.textContent.replace('⭐','').trim();
+    return document.getElementById('f-source-other').value.trim() || '';
+  }
+
+  function setSource(val) {
+    document.querySelectorAll('#source-btns .source-btn').forEach(b => {
+      const label = b.textContent.replace('⭐','').trim();
+      if (label === val) { b.classList.add('active'); }
+    });
+    const knownSources = ['LinkedIn','ビズリーチ','マイナビ','リクナビ','エン転職','doda','エージェント経由'];
+    if (val && !knownSources.includes(val)) {
+      document.getElementById('f-source-other').value = val;
+    }
+  }
+
+  // ── Interview toggle ──────────────────────────────────────
+  function toggleInterview(cb) {
+    const field = document.getElementById('interview-date-field');
+    field.classList.toggle('show', cb.checked);
+  }
+
+  // ── Password toggle ───────────────────────────────────────
+  function togglePw() {
+    const inp = document.getElementById('f-password');
+    const btn = document.getElementById('pw-toggle-btn');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+    else { inp.type = 'password'; btn.textContent = '👁'; }
+  }
+
+  // ── Modal open/close ──────────────────────────────────────
+  function openModal(id) {
+    editingId = id || null;
+    resetForm();
+
+    if (id) {
+      const e = entries.find(x => x.id === id);
+      if (e) {
+        document.getElementById('modal-title-text').textContent = '企業情報を編集';
+        document.getElementById('f-name').value = e.name || '';
+        document.getElementById('f-url').value = e.url || '';
+        document.getElementById('f-job-url').value = e.jobUrl || '';
+        document.getElementById('f-account').value = e.account || '';
+        document.getElementById('f-password').value = e.password || '';
+        document.getElementById('f-apply-date').value = e.applyDate || '';
+        document.getElementById('f-memo').value = e.memo || '';
+        document.getElementById('f-has-interview').checked = !!e.hasInterview;
+        document.getElementById('f-interview-date').value = e.interviewDate || '';
+        if (e.hasInterview) document.getElementById('interview-date-field').classList.add('show');
+        setStatus(e.status);
+        setSource(e.source);
+      }
+    } else {
+      document.getElementById('modal-title-text').textContent = '企業を追加';
+    }
+
+    document.getElementById('modal-overlay').classList.add('open');
+    document.getElementById('f-name').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  function overlayClick(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  function resetForm() {
+    ['f-name','f-url','f-job-url','f-account','f-password','f-apply-date','f-memo','f-interview-date','f-source-other']
+      .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-password').type = 'password';
+    document.getElementById('pw-toggle-btn').textContent = '👁';
+    document.getElementById('f-has-interview').checked = false;
+    document.getElementById('interview-date-field').classList.remove('show');
+    document.querySelectorAll('#status-pills .status-pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#source-btns .source-btn').forEach(b => b.classList.remove('active'));
+    currentSource = '';
+    // Default status
+    const first = document.querySelector('#status-pills .status-pill');
+    if (first) first.classList.add('active');
+  }
+
+  // ── Save ──────────────────────────────────────────────────
+  function saveEntry() {
+    const name = document.getElementById('f-name').value.trim();
+    if (!name) { document.getElementById('f-name').focus(); return; }
+
+    const entry = {
+      id: editingId || Date.now().toString(),
+      name,
+      url: document.getElementById('f-url').value.trim(),
+      jobUrl: document.getElementById('f-job-url').value.trim(),
+      account: document.getElementById('f-account').value.trim(),
+      password: document.getElementById('f-password').value,
+      applyDate: document.getElementById('f-apply-date').value,
+      status: getStatus(),
+      source: getSource(),
+      hasInterview: document.getElementById('f-has-interview').checked,
+      interviewDate: document.getElementById('f-interview-date').value,
+      memo: document.getElementById('f-memo').value.trim(),
+    };
+
+    if (editingId) {
+
+  const idx =
+    entries.findIndex(
+      x => x.id === editingId
+    );
+
+  const oldEntry =
+    entries[idx];
+
+  const oldExp =
+    expForStatus(
+      oldEntry.status
+    );
+
+  const newExp =
+    expForStatus(
+      entry.status
+    );
+
+  const gained =
+    Math.max(
+      0,
+      newExp - oldExp
+    );
+
+  if(gained > 0){
+
+    playerExp += gained;
+
+    localStorage.setItem(
+      "playerExp",
+      playerExp
+    );
+
+    showCatMessage(
+      `⚔️ レベルアップ！
+      EXP +${gained}`
+    );
+
+    updateHeroPanel();
+  }
+
+  entries[idx] = entry;
+
+}
+
+
+
+  else {
+
+  entries.unshift(entry);
+  checkAchievements();
+
+  const gained =
+    expForStatus(entry.status);
+
+  playerExp += gained;
+  showCatMessage(
+  `新しいクエスト受注！
+  EXP +${gained}`
+  );
+  updateHeroPanel();
+
+  localStorage.setItem(
+  "playerExp",
+  playerExp
+  );
+
+  localStorage.setItem(
+    "playerExp",
+    playerExp
+  );
+
+  showToast(
+    `⚔️ EXP +${gained}`
+  );
+}
+
+    save();
+    closeModal();
+    renderCards();
+  }
+
+  function deleteEntry(id, e) {
+    e.stopPropagation();
+    if (!confirm('この企業を削除しますか？')) return;
+    entries = entries.filter(x => x.id !== id);
+    save();
+    renderCards();
+  }
+
+  function save() {
+    localStorage.setItem('todojoob_entries', JSON.stringify(entries));
+  }
+
+  // ── Render ────────────────────────────────────────────────
+  function renderCards() {
+    const filterStatus = document.getElementById('filter-status').value;
+    let list = filterStatus ? entries.filter(e => e.status === filterStatus) : entries;
+
+    const grid = document.getElementById('cards-grid');
+    grid.innerHTML = '';
+
+    // Stats
+    const active = entries.filter(e => !['内定','見送り','興味あり'].includes(e.status)).length;
+    const offers = entries.filter(e => e.status === '内定').length;
+    document.getElementById('stat-total').innerHTML = `合計 <b>${entries.length}</b> 社`;
+    document.getElementById('stat-active').innerHTML = `選考中 <b>${active}</b> 社`;
+    document.getElementById('stat-offer').innerHTML = `内定 <b>${offers}</b> 社`;
+
+    if (list.length === 0) {
+      grid.innerHTML = `<div class="empty-state"><div class="emoji">🍍</div><p>${filterStatus ? `「${filterStatus}」の企業はまだありません` : 'まだ企業が登録されていません<br>「企業を追加する」から始めましょう！'}</p></div>`;
+      return;
+    }
+
+    list.forEach(e => {
+      const card = document.createElement('div');
+      card.className = 'company-card';
+      card.dataset.status = e.status || '';
+      card.onclick = () => openModal(e.id);
+
+      const statusClass = (e.status || '').replace(/\s/g, '');
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-company">${escHtml(e.name)}</div>
+          <div class="card-actions">
+            <button class="card-icon-btn del" onclick="deleteEntry('${e.id}', event)" title="削除">✕</button>
+          </div>
+        </div>
+        <div class="card-tags">
+          ${e.status ? `<span class="tag tag-status ${statusClass}">${escHtml(e.status)}</span>` : ''}
+          ${e.source ? `<span class="tag tag-source">🥔 ${escHtml(e.source)}</span>` : ''}
+          ${e.hasInterview && e.interviewDate ? `<span class="tag tag-interview">📅 面接 ${formatDate(e.interviewDate)}</span>` : ''}
+          ${e.hasInterview && !e.interviewDate ? `<span class="tag tag-interview">📅 面接予定あり</span>` : ''}
+        </div>
+        <div class="card-meta">
+          ${e.applyDate ? `<div class="card-meta-row">📨 応募日：${formatDate(e.applyDate)}</div>` : ''}
+          ${e.url ? `<div class="card-meta-row">🌐 <a href="${escHtml(e.url)}" target="_blank" onclick="event.stopPropagation()">${escHtml(e.url)}</a></div>` : ''}
+          ${e.account ? `<div class="card-meta-row">👤 ${escHtml(e.account)}</div>` : ''}
+        </div>
+        ${e.memo ? `<div class="card-memo">${escHtml(e.memo)}</div>` : ''}
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function escHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatDate(s) {
+    if (!s) return '';
+    const d = new Date(s);
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // ── Toast ─────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  function showCatMessage(msg){
+
+  const box =
+    document.getElementById(
+      "cat-message"
+    );
+
+  box.innerHTML =
+    `🐈 もみ隊長<br>${msg}`;
+
+  box.style.display =
+    "block";
+
+  setTimeout(()=>{
+
+    box.style.display =
+      "none";
+
+  },4000);
+
+}
+
+  // ── Export to Excel ───────────────────────────────────────
+  function exportToExcel() {
+    if (entries.length === 0) { showToast('⚠️ エクスポートするデータがありません'); return; }
+
+    const btn = document.getElementById('export-btn');
+    btn.classList.add('exporting');
+    btn.textContent = '⏳ 作成中...';
+
+    setTimeout(() => {
+      try {
+        const wb = XLSX.utils.book_new();
+
+        // ── Sheet 1: 企業一覧 ──────────────────────────────
+        const headers = [
+          '企業名','企業HP','求人ページ','メール/ID','パスワード',
+          '情報源','応募日','選考進捗状況','面接予定','面接日','自由メモ'
+        ];
+
+        const rows = entries.map(e => [
+          e.name        || '',
+          e.url         || '',
+          e.jobUrl      || '',
+          e.account     || '',
+          e.password    || '',
+          e.source      || '',
+          e.applyDate   || '',
+          e.status      || '',
+          e.hasInterview ? 'あり' : 'なし',
+          e.interviewDate || '',
+          e.memo        || '',
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+        // Column widths
+        ws['!cols'] = [
+          {wch:22},{wch:32},{wch:32},{wch:26},{wch:18},
+          {wch:16},{wch:12},{wch:14},{wch:10},{wch:12},{wch:40}
+        ];
+
+        // Header row style (background purple, white bold text)
+        const headerStyle = {
+          font:  { bold: true, color: { rgb: 'FFFFFF' }, sz: 11, name: 'Meiryo' },
+          fill:  { fgColor: { rgb: 'A78BFA' }, patternType: 'solid' },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          border: {
+            top:    { style: 'thin', color: { rgb: 'C4B5FD' } },
+            bottom: { style: 'thin', color: { rgb: 'C4B5FD' } },
+            left:   { style: 'thin', color: { rgb: 'C4B5FD' } },
+            right:  { style: 'thin', color: { rgb: 'C4B5FD' } },
+          }
+        };
+
+        // Status color map
+        const statusColors = {
+          '内定':    'D1FAE5', '見送り':   'FFE4E6',
+          '最終面接': 'FEF9C3', '二次面接': 'DBEAFE',
+          '一次面接': 'EDE9FE', 'WEBテスト': 'E0F2FE',
+          'カジュアル面談': 'FDE68A',
+          'エントリー済み': 'F0FDF4', '興味あり': 'F5F3FF',
+        };
+
+        // Apply header styles
+        headers.forEach((_, ci) => {
+          const cellRef = XLSX.utils.encode_cell({ r: 0, c: ci });
+          if (!ws[cellRef]) ws[cellRef] = { v: headers[ci] };
+          ws[cellRef].s = headerStyle;
+        });
+
+        // Apply data row styles
+        rows.forEach((row, ri) => {
+          const status = row[7];
+          const rowBg = statusColors[status] || 'FFFFFF';
+          row.forEach((_, ci) => {
+            const cellRef = XLSX.utils.encode_cell({ r: ri + 1, c: ci });
+            if (!ws[cellRef]) ws[cellRef] = { v: '' };
+            ws[cellRef].s = {
+              font: { sz: 10, name: 'Meiryo' },
+              fill: { fgColor: { rgb: rowBg }, patternType: 'solid' },
+              alignment: { vertical: 'center', wrapText: ci === 10 },
+              border: {
+                top:    { style: 'hair', color: { rgb: 'DDD6FE' } },
+                bottom: { style: 'hair', color: { rgb: 'DDD6FE' } },
+                left:   { style: 'hair', color: { rgb: 'DDD6FE' } },
+                right:  { style: 'hair', color: { rgb: 'DDD6FE' } },
+              }
+            };
+          });
+        });
+
+        // Freeze top row
+        ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+        // Auto-filter
+        ws['!autofilter'] = { ref: `A1:K${rows.length + 1}` };
+
+        XLSX.utils.book_append_sheet(wb, ws, '企業一覧');
+
+        // ── Sheet 2: 選考サマリー ──────────────────────────
+        const statusOrder = ['興味あり','エントリー済み','カジュアル面談','WEBテスト','一次面接','二次面接','最終面接','内定','見送り'];
+        const countMap = {};
+        statusOrder.forEach(s => { countMap[s] = 0; });
+        entries.forEach(e => { if (e.status && countMap[e.status] !== undefined) countMap[e.status]++; });
+
+        const summaryHeaders = ['選考ステータス', '企業数'];
+        const summaryRows = statusOrder.map(s => [s, countMap[s]]);
+        summaryRows.push(['', '']);
+        summaryRows.push(['合計', entries.length]);
+
+        const ws2 = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]);
+        ws2['!cols'] = [{wch:20},{wch:10}];
+
+        // Style summary header
+        ['A1','B1'].forEach(ref => {
+          ws2[ref].s = { ...headerStyle, fill: { fgColor: { rgb: '60A5FA' }, patternType: 'solid' } };
+        });
+
+        // Style summary data
+        statusOrder.forEach((s, i) => {
+          const bg = statusColors[s] || 'FFFFFF';
+          ['A','B'].forEach(col => {
+            const ref = `${col}${i+2}`;
+            if (ws2[ref]) ws2[ref].s = {
+              font: { sz: 10, name: 'Meiryo', bold: col === 'B' },
+              fill: { fgColor: { rgb: bg }, patternType: 'solid' },
+              alignment: { horizontal: col === 'B' ? 'center' : 'left', vertical: 'center' },
+              border: { top: {style:'hair',color:{rgb:'DDD6FE'}}, bottom: {style:'hair',color:{rgb:'DDD6FE'}}, left: {style:'hair',color:{rgb:'DDD6FE'}}, right: {style:'hair',color:{rgb:'DDD6FE'}} }
+            };
+          });
+        });
+
+        // Total row style
+        const totalRow = statusOrder.length + 2;
+        ['A','B'].forEach(col => {
+          const ref = `${col}${totalRow + 1}`;
+          if (ws2[ref]) ws2[ref].s = {
+            font: { sz: 11, name: 'Meiryo', bold: true, color: { rgb: '3B3065' } },
+            fill: { fgColor: { rgb: 'EDE9FE' }, patternType: 'solid' },
+            alignment: { horizontal: col === 'B' ? 'center' : 'left', vertical: 'center' },
+            border: { top: {style:'medium',color:{rgb:'A78BFA'}}, bottom: {style:'medium',color:{rgb:'A78BFA'}}, left: {style:'thin',color:{rgb:'DDD6FE'}}, right: {style:'thin',color:{rgb:'DDD6FE'}} }
+          };
+        });
+
+        XLSX.utils.book_append_sheet(wb, ws2, '選考サマリー');
+
+        // ── Sheet 3: 面接スケジュール ──────────────────────
+        const interviewEntries = entries.filter(e => e.hasInterview && e.interviewDate);
+        interviewEntries.sort((a, b) => (a.interviewDate || '').localeCompare(b.interviewDate || ''));
+
+        const iHeaders = ['面接日', '企業名', '選考ステータス', 'メール/ID', '企業HP', 'メモ'];
+        const iRows = interviewEntries.map(e => [
+          e.interviewDate || '', e.name || '', e.status || '',
+          e.account || '', e.url || '', e.memo || ''
+        ]);
+
+        const ws3 = XLSX.utils.aoa_to_sheet([iHeaders, ...iRows]);
+        ws3['!cols'] = [{wch:13},{wch:22},{wch:14},{wch:26},{wch:30},{wch:36}];
+        ws3['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+        iHeaders.forEach((_, ci) => {
+          const ref = XLSX.utils.encode_cell({r:0,c:ci});
+          if (ws3[ref]) ws3[ref].s = { ...headerStyle, fill: { fgColor: { rgb: '818CF8' }, patternType: 'solid' } };
+        });
+        iRows.forEach((row, ri) => {
+          row.forEach((_, ci) => {
+            const ref = XLSX.utils.encode_cell({r:ri+1,c:ci});
+            if (!ws3[ref]) ws3[ref] = { v: '' };
+            ws3[ref].s = {
+              font: { sz: 10, name: 'Meiryo' },
+              fill: { fgColor: { rgb: ri%2===0 ? 'F5F3FF' : 'FFFFFF' }, patternType: 'solid' },
+              alignment: { vertical: 'center' },
+              border: { top:{style:'hair',color:{rgb:'DDD6FE'}}, bottom:{style:'hair',color:{rgb:'DDD6FE'}}, left:{style:'hair',color:{rgb:'DDD6FE'}}, right:{style:'hair',color:{rgb:'DDD6FE'}} }
+            };
+          });
+        });
+
+        XLSX.utils.book_append_sheet(wb, ws3, '面接スケジュール');
+
+        // ── Download ──────────────────────────────────────
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+        XLSX.writeFile(wb, `ToDoJooob_${dateStr}.xlsx`, { bookType: 'xlsx', type: 'binary', cellStyles: true });
+
+        showToast('✅ エクスポート完了！');
+      } catch(err) {
+        console.error(err);
+        showToast('❌ エクスポートに失敗しました');
+      }
+
+      btn.classList.remove('exporting');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Excelエクスポート`;
+    }, 80);
+  }
+
+  // Init
+  function showDailyMessage(){
+
+    const today =
+    new Date().toDateString();
+
+    const last =
+    localStorage.getItem(
+      "lastLoginDate"
+    );
+
+    if(last === today)
+    return;
+
+    localStorage.setItem(
+    "lastLoginDate",
+    today
+    );
+
+    const msgs=[
+
+    "☕ 今日もお疲れさま",
+
+    "🌱 一社応募だけでも前進",
+
+    "⚔️ 勇者に必要なのは継続力",
+
+    "🐈 もみ隊長は応援してるにゃ",
+
+    "✨ 運命の会社はきっとある",
+
+    "🏆 今日も経験値稼ぎに行くにゃ"
+
+    ];
+
+    showCatMessage(
+
+    msgs[
+    Math.floor(
+    Math.random()*msgs.length
+    )
+    ]
+
+    );
+
+}
+  renderCards();
+  updateHeroPanel();
+  showDailyMessage();
+  
+</script>
+
+
+
+
+<div id="cat-secretary">
+
+🐈
+
+<div id="cat-message">
+
+もみ隊長：
+今日もお疲れさまにゃ
+
+</div>
+
+</div>
+</body>
+</html>

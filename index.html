@@ -6,100 +6,138 @@
 <title>ToDoJooob</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<!-- Firebase SDK (compat版: グローバル変数として使える) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyC1bWwbIcexvuc-ZNcrug8hFXY4DQuYbnE",
-    authDomain: "job-quest-e5bb4.firebaseapp.com",
-    projectId: "job-quest-e5bb4",
-    storageBucket: "job-quest-e5bb4.firebasestorage.app",
-    messagingSenderId: "666727999569",
-    appId: "1:666727999569:web:4e5b5eff6312ec6d9bb070",
-    measurementId: "G-87P7XKDY4G"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const auth = firebase.auth();
+  // ══════════════════════════════════════════════════════
+  //  SUPABASE 設定
+  // ══════════════════════════════════════════════════════
+  const { createClient } = supabase;
+  let _sb = null;
+  let _realtimeChannel = null;
+
+  function getSbConfig() {
+    return {
+      url: localStorage.getItem('sb_url') || '',
+      key: localStorage.getItem('sb_key') || '',
+    };
+  }
+
+  function initSupabase(url, key) {
+    try {
+      _sb = createClient(url, key);
+      return true;
+    } catch(e) { _sb = null; return false; }
+  }
+
+  // ─── デバイスコード（共有キー）────────────────────────────
+  function getDeviceCode() { return localStorage.getItem('todojoob_device_code') || ''; }
+  function setDeviceCode(code) { localStorage.setItem('todojoob_device_code', code.trim()); }
+  window._getDeviceCode = getDeviceCode;
+  window._setDeviceCode = setDeviceCode;
 
   // ─── 同期バッジ ───────────────────────────────────────────
   function updateSyncBadge(state) {
     const badge = document.getElementById('sync-badge');
     if (!badge) return;
     badge.className = 'sync-badge ' + state;
-    const labels = { synced: '☁️ クラウド同期済み', syncing: '🔄 同期中...', offline: '📴 オフライン（ローカル保存中）' };
+    const labels = {
+      synced:  '☁️ クラウド同期済み',
+      syncing: '🔄 同期中...',
+      offline: '📴 オフライン（ローカル保存中）'
+    };
     badge.innerHTML = '<span class="sync-dot"></span> ' + (labels[state] || state);
   }
-  // 通常スクリプトからも呼べるようにwindowに入れておく
   window._updateSyncBadge = updateSyncBadge;
 
-  // ─── Firestoreへ保存 ──────────────────────────────────────
-  window._saveToFirestore = async function() {
-    const user = auth.currentUser;
-    if (!user) return;
+  // ─── Supabaseへ保存 ───────────────────────────────────────
+  window._saveToSupabase = async function() {
+    if (!_sb) return;
+    const code = getDeviceCode();
+    if (!code) return;
     try {
       updateSyncBadge('syncing');
-      await db.collection('users').doc(user.uid).set({
-        entries: window._entries || [],
-        playerExp: window._playerExp || 0,
-        updatedAt: new Date().toISOString()
-      });
+      const { error } = await _sb.from('shared_data').upsert({
+        code,
+        entries:    JSON.stringify(window._entries   || []),
+        player_exp: window._playerExp || 0,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'code' });
+      if (error) throw error;
       updateSyncBadge('synced');
     } catch(err) {
-      console.error('Firestore保存エラー:', err);
+      console.error('Supabase保存エラー:', err);
       updateSyncBadge('offline');
     }
   };
 
-  // ─── 匿名ログイン & リアルタイム同期 ─────────────────────
-  auth.signInAnonymously().catch(err => {
-    console.warn('Firebase匿名ログイン失敗:', err);
-    updateSyncBadge('offline');
-  });
+  // ─── リアルタイム同期 ─────────────────────────────────────
+  window._startSync = async function(code) {
+    if (!_sb || !code) { updateSyncBadge('offline'); return; }
 
-  auth.onAuthStateChanged(user => {
-    if (!user) return;
+    // 既存チャンネルを解除
+    if (_realtimeChannel) { _sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
+
     updateSyncBadge('syncing');
 
-    // リアルタイムリスナー（他デバイスからの変更を即反映）
-    db.collection('users').doc(user.uid).onSnapshot(snap => {
-      if (!snap.exists) { updateSyncBadge('synced'); return; }
-      const data = snap.data();
-
-      if (data.entries) {
-        const remoteJson = JSON.stringify(data.entries);
-        const localJson  = JSON.stringify(window._entries || []);
-        if (remoteJson !== localJson) {
-          window._entries = data.entries;
-          localStorage.setItem('todojoob_entries', remoteJson);
-          // DOMが準備できてから描画
-          if (typeof renderCards === 'function') {
-            entries = window._entries;
-            renderCards();
-          }
+    // 初回: クラウドからデータを取得
+    try {
+      const { data, error } = await _sb.from('shared_data').select('*').eq('code', code).single();
+      if (!error && data) {
+        _applyRemoteData(data);
+      } else if (!data) {
+        // データなし → ローカルをアップロード
+        if (window._entries && window._entries.length > 0) {
+          await window._saveToSupabase();
+        } else {
+          updateSyncBadge('synced');
         }
       }
-      if (data.playerExp !== undefined && data.playerExp !== window._playerExp) {
-        window._playerExp = data.playerExp;
-        playerExp = data.playerExp;
-        localStorage.setItem('playerExp', data.playerExp);
+    } catch(e) { updateSyncBadge('offline'); }
+
+    // リアルタイムリスナー（他デバイスからの変更を即反映）
+    _realtimeChannel = _sb
+      .channel('shared_data:' + code)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'shared_data',
+        filter: `code=eq.${code}`
+      }, payload => {
+        if (payload.new) _applyRemoteData(payload.new);
+      })
+      .subscribe();
+  };
+
+  function _applyRemoteData(data) {
+    try {
+      const remoteEntries = typeof data.entries === 'string'
+        ? JSON.parse(data.entries) : (data.entries || []);
+      const remoteJson = JSON.stringify(remoteEntries);
+      const localJson  = JSON.stringify(window._entries || []);
+      if (remoteJson !== localJson) {
+        window._entries = remoteEntries;
+        localStorage.setItem('todojoob_entries', remoteJson);
+        if (typeof renderCards === 'function') { entries = window._entries; renderCards(); }
+      }
+      if (data.player_exp !== undefined && data.player_exp !== window._playerExp) {
+        window._playerExp = data.player_exp;
+        playerExp = data.player_exp;
+        localStorage.setItem('playerExp', data.player_exp);
         if (typeof updateHeroPanel === 'function') updateHeroPanel();
       }
       updateSyncBadge('synced');
-    }, err => {
-      console.error('Firestore同期エラー:', err);
-      updateSyncBadge('offline');
-    });
+    } catch(e) { console.error('データ適用エラー:', e); }
+  }
 
-    // 初回起動: Firestoreにデータがない場合だけローカルデータをアップロード
-    db.collection('users').doc(user.uid).get().then(snap => {
-      if (!snap.exists && window._entries && window._entries.length > 0) {
-        window._saveToFirestore();
-      }
-    });
+  // ─── 起動時の初期化 ───────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    const { url, key } = getSbConfig();
+    const code = getDeviceCode();
+    if (url && key && code) {
+      initSupabase(url, key);
+      window._startSync(code);
+    } else {
+      updateSyncBadge('offline');
+      setTimeout(() => { if (typeof openDeviceModal === 'function') openDeviceModal(); }, 800);
+    }
   });
 </script>
 <style>
@@ -802,6 +840,82 @@
     .modal { padding: 22px 16px 20px; }
     .field-row { grid-template-columns: 1fr; }
   }
+
+  /* ─── DEVICE CODE MODAL ─── */
+  .dev-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(80,60,140,0.25); backdrop-filter: blur(7px);
+    z-index: 300; align-items: center; justify-content: center; padding: 16px;
+  }
+  .dev-overlay.open { display: flex; }
+  .dev-modal {
+    background: rgba(255,255,255,0.97); border-radius: 24px;
+    padding: 32px 28px 26px; width: 100%; max-width: 480px;
+    box-shadow: 0 16px 60px rgba(100,60,200,0.2);
+    border: 1px solid var(--lavender-200);
+    animation: modalIn 0.28s cubic-bezier(.34,1.56,.64,1);
+  }
+  .dev-title {
+    font-size: 1.1rem; font-weight: 700; color: var(--text-dark);
+    margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  }
+  .dev-sub { font-size: 0.78rem; color: var(--text-light); margin-bottom: 20px; line-height: 1.7; }
+  .dev-step {
+    background: var(--lavender-50); border-radius: 12px;
+    padding: 13px 15px; margin-bottom: 12px;
+    border: 1px solid var(--lavender-100);
+  }
+  .dev-step-label {
+    font-size: 0.7rem; font-weight: 700; color: var(--text-light);
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 7px;
+  }
+  .dev-step p { font-size: 0.78rem; color: var(--text-mid); line-height: 1.6; }
+  .dev-step code {
+    display: block; background: #1e1b2e; color: #c4b5fd;
+    border-radius: 8px; padding: 10px 13px; margin-top: 8px;
+    font-size: 0.71rem; line-height: 1.8; white-space: pre; overflow-x: auto;
+    font-family: 'Courier New', monospace;
+  }
+  .dev-inputs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .dev-inputs input {
+    width: 100%; padding: 9px 13px;
+    border: 1.5px solid var(--lavender-200); border-radius: 12px;
+    font-family: "Meiryo", sans-serif; font-size: 0.85rem;
+    color: var(--text-dark); background: var(--lavender-50); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .dev-inputs input:focus {
+    border-color: var(--lavender-300);
+    box-shadow: 0 0 0 3px rgba(167,139,250,0.15); background: #fff;
+  }
+  .dev-inputs input::placeholder { color: var(--text-light); font-size: 0.78rem; }
+  .dev-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; flex-wrap:wrap; }
+  .dev-skip-btn {
+    padding: 9px 18px; border-radius: 50px;
+    border: 1.5px solid var(--lavender-200); background: white;
+    color: var(--text-mid); font-family: "Meiryo", sans-serif;
+    font-size: 0.85rem; cursor: pointer; transition: all 0.18s;
+  }
+  .dev-skip-btn:hover { background: var(--lavender-50); }
+  .dev-connect-btn {
+    padding: 9px 22px; border-radius: 50px; border: none;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa); color: white;
+    font-family: "Meiryo", sans-serif; font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; box-shadow: 0 3px 14px rgba(139,92,246,0.25); transition: all 0.2s;
+  }
+  .dev-connect-btn:hover { transform:translateY(-1px); box-shadow: 0 5px 18px rgba(139,92,246,0.35); }
+  .dev-msg { font-size:0.78rem; margin-top:10px; padding: 8px 12px; border-radius:10px; display:none; }
+  .dev-msg.ok  { background:#d1fae5; color:#065f46; display:block; }
+  .dev-msg.err { background:#ffe4e6; color:#9f1239; display:block; }
+  .dev-settings-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 50px;
+    border: 1.5px solid var(--lavender-200); background: white;
+    color: var(--text-mid); font-family: "Meiryo", sans-serif;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; box-shadow: 0 2px 10px rgba(139,92,246,0.08);
+  }
+  .dev-settings-btn:hover { background: var(--lavender-50); border-color: var(--lavender-300); transform: translateY(-2px); }
 </style>
 </head>
 <body>
@@ -843,6 +957,56 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
     Excelエクスポート
   </button>
+  <button class="dev-settings-btn" onclick="openDeviceModal()">
+    ☁️ クラウド設定
+  </button>
+</div>
+
+<!-- Device Code Modal -->
+<div class="dev-overlay" id="dev-overlay" onclick="devOverlayClick(event)">
+  <div class="dev-modal">
+    <div class="dev-title">☁️ クラウド同期設定</div>
+    <div class="dev-sub">
+      複数デバイスでデータを共有できます。<br>
+      Supabase の URL・Key と、自分だけの「共有コード」を設定してください。<br>
+      同じコードを別のデバイスで入力すれば、データが同期されます。
+    </div>
+
+    <div class="dev-step">
+      <div class="dev-step-label">① Supabase でテーブルを作成（初回のみ）</div>
+      <p>Supabase → SQL Editor → New query に貼り付けて Run：</p>
+      <code>create table if not exists shared_data (
+  code text primary key,
+  entries text default '[]',
+  player_exp int default 0,
+  updated_at timestamptz default now()
+);
+alter table shared_data enable row level security;
+create policy "public_all" on shared_data
+  for all using (true) with check (true);
+
+-- リアルタイム同期を有効化
+alter publication supabase_realtime
+  add table shared_data;</code>
+    </div>
+
+    <div class="dev-step">
+      <div class="dev-step-label">② 接続情報を入力</div>
+      <div class="dev-inputs">
+        <input type="url"  id="dev-url"  placeholder="Project URL（例: https://xxxx.supabase.co）" />
+        <input type="text" id="dev-key"  placeholder="anon public key（eyJh... で始まる文字列）" />
+        <input type="text" id="dev-code" placeholder="共有コード（自分で決めるパスワード風の文字列）例: myjobquest2025" />
+      </div>
+    </div>
+
+    <div id="dev-msg" class="dev-msg"></div>
+
+    <div class="dev-actions">
+      <button class="dev-skip-btn" onclick="closeDeviceModal()">あとで</button>
+      <button class="dev-skip-btn" onclick="testDeviceConnection()" id="dev-test-btn">接続テスト</button>
+      <button class="dev-connect-btn" onclick="saveDeviceConfig()">保存して接続 ☁️</button>
+    </div>
+  </div>
 </div>
 
 <!-- Toast -->
@@ -1000,9 +1164,16 @@
   let editingId = null;
   let currentSource = '';
 
-  // Firebaseとの橋渡し（module scriptから参照できるようにwindowに公開）
+  // Supabaseとの橋渡し
   window._entries = entries;
   window._playerExp = playerExp;
+
+  function getSbConfig() {
+    return {
+      url: localStorage.getItem('sb_url') || '',
+      key: localStorage.getItem('sb_key') || '',
+    };
+  }
 
   
 
@@ -1429,13 +1600,70 @@
 
   function save() {
     localStorage.setItem('todojoob_entries', JSON.stringify(entries));
-    // windowの参照を更新してFirebase moduleからアクセスできるようにする
     window._entries = entries;
     window._playerExp = playerExp;
-    // Firestoreへ保存（Firebase初期化後のみ実行）
-    if (window._saveToFirestore) {
-      window._updateSyncBadge('syncing');
-      window._saveToFirestore();
+    if (window._saveToSupabase) window._saveToSupabase();
+  }
+
+  // ── Device / Supabase modal ───────────────────────────────
+  function openDeviceModal() {
+    const { url, key } = getSbConfig();
+    const code = getDeviceCode();
+    document.getElementById('dev-url').value  = url;
+    document.getElementById('dev-key').value  = key;
+    document.getElementById('dev-code').value = code;
+    document.getElementById('dev-msg').className = 'dev-msg';
+    document.getElementById('dev-msg').textContent = '';
+    document.getElementById('dev-overlay').classList.add('open');
+  }
+  function closeDeviceModal() {
+    document.getElementById('dev-overlay').classList.remove('open');
+  }
+  function devOverlayClick(e) {
+    if (e.target === document.getElementById('dev-overlay')) closeDeviceModal();
+  }
+  function showDevMsg(type, text) {
+    const el = document.getElementById('dev-msg');
+    el.className = 'dev-msg ' + type;
+    el.textContent = text;
+  }
+  async function testDeviceConnection() {
+    const url  = document.getElementById('dev-url').value.trim();
+    const key  = document.getElementById('dev-key').value.trim();
+    const code = document.getElementById('dev-code').value.trim();
+    if (!url || !key || !code) { showDevMsg('err', '⚠️ 3つの項目をすべて入力してください'); return; }
+    const btn = document.getElementById('dev-test-btn');
+    btn.textContent = '接続中...'; btn.disabled = true;
+    try {
+      const client = supabase.createClient(url, key);
+      const { error } = await client.from('shared_data').select('code').limit(1);
+      if (error) throw error;
+      showDevMsg('ok', '✅ 接続成功！「保存して接続」を押してください');
+    } catch(e) {
+      showDevMsg('err', '❌ 接続失敗：' + (e.message || 'URLまたはkeyを確認してください'));
+    }
+    btn.textContent = '接続テスト'; btn.disabled = false;
+  }
+  async function saveDeviceConfig() {
+    const url  = document.getElementById('dev-url').value.trim();
+    const key  = document.getElementById('dev-key').value.trim();
+    const code = document.getElementById('dev-code').value.trim();
+    if (!url || !key || !code) { showDevMsg('err', '⚠️ 3つの項目をすべて入力してください'); return; }
+    try {
+      const client = supabase.createClient(url, key);
+      const { error } = await client.from('shared_data').select('code').limit(1);
+      if (error) throw error;
+      localStorage.setItem('sb_url', url);
+      localStorage.setItem('sb_key', key);
+      setDeviceCode(code);
+      _sb = client;
+      showDevMsg('ok', '✅ 設定を保存しました！同期を開始します…');
+      setTimeout(async () => {
+        closeDeviceModal();
+        await window._startSync(code);
+      }, 900);
+    } catch(e) {
+      showDevMsg('err', '❌ ' + (e.message || '接続失敗。URLとkeyを確認してください'));
     }
   }
 

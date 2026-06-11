@@ -74,17 +74,28 @@
   window._startSync = async function(code) {
     if (!_sb || !code) { updateSyncBadge('offline'); return; }
 
-    // 既存チャンネルを解除
     if (_realtimeChannel) { _sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
 
     updateSyncBadge('syncing');
 
-    // 初回: クラウドからデータを取得
+    // タイムアウト付きで初回データ取得
     try {
-      const { data, error } = await _sb.from('shared_data').select('*').eq('code', code).single();
-      if (!error && data) {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 8000)
+      );
+      const fetchData = _sb
+        .from('shared_data')
+        .select('*')
+        .eq('code', code)
+        .maybeSingle();  // .single()→.maybeSingle(): データなしでもエラーにならない
+
+      const { data, error } = await Promise.race([fetchData, timeout]);
+
+      if (error) throw error;
+
+      if (data) {
         _applyRemoteData(data);
-      } else if (!data) {
+      } else {
         // データなし → ローカルをアップロード
         if (window._entries && window._entries.length > 0) {
           await window._saveToSupabase();
@@ -92,18 +103,28 @@
           updateSyncBadge('synced');
         }
       }
-    } catch(e) { updateSyncBadge('offline'); }
+    } catch(e) {
+      console.error('Supabase初回取得エラー:', e.message);
+      updateSyncBadge('offline');
+    }
 
-    // リアルタイムリスナー（他デバイスからの変更を即反映）
-    _realtimeChannel = _sb
-      .channel('shared_data:' + code)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'shared_data',
-        filter: `code=eq.${code}`
-      }, payload => {
-        if (payload.new) _applyRemoteData(payload.new);
-      })
-      .subscribe();
+    // リアルタイムリスナー
+    try {
+      _realtimeChannel = _sb
+        .channel('shared_data:' + code)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'shared_data',
+          filter: `code=eq.${code}`
+        }, payload => {
+          if (payload.new) _applyRemoteData(payload.new);
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') updateSyncBadge('synced');
+          if (status === 'CHANNEL_ERROR') updateSyncBadge('offline');
+        });
+    } catch(e) {
+      console.error('リアルタイムリスナーエラー:', e);
+    }
   };
 
   function _applyRemoteData(data) {
@@ -548,9 +569,9 @@
 
   /* ─── KANBAN BOARD ─── */
   .board-wrap {
-    padding: 0 16px 40px;
-    max-width: 1400px;
-    margin: 0 auto;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
   }
 
   /* Filter & stats bar */
@@ -742,7 +763,7 @@
   .blob3 { width: 250px; height: 250px; background: #38bdf8; top: 40%; left: 30%; }
 
   /* Everything above blobs */
-  .app-header, .board-wrap, .add-btn-wrap { position: relative; z-index: 1; }
+  .app-header, .page-layout, .add-btn-wrap { position: relative; z-index: 1; }
 
   .add-btn-wrap { text-align: center; }
 
@@ -918,11 +939,25 @@
     margin-bottom: 28px;
   }
   .dev-settings-btn:hover { background: var(--lavender-50); border-color: var(--lavender-300); transform: translateY(-2px); }
+  /* ─── LAYOUT WITH SIDEBAR CALENDAR ─── */
+  .page-layout {
+    display: flex;
+    align-items: flex-start;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 16px 40px;
+    gap: 20px;
+  }
+  .main-content { flex: 1; min-width: 0; }
+  .cal-sidebar {
+    flex-shrink: 0;
+    width: 220px;
+    position: sticky;
+    top: 20px;
+  }
+
   /* ─── MINI CALENDAR ─── */
   .mini-cal {
-    position: fixed;
-    top: 18px; right: 18px;
-    z-index: 90;
     background: rgba(255,255,255,0.95);
     border-radius: 18px;
     padding: 14px 16px;
@@ -1019,7 +1054,44 @@
 <div class="blob blob3"></div>
 
 <!-- Mini Calendar -->
-<div class="mini-cal" id="mini-cal"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Page Layout: board + calendar sidebar -->
+<div class="page-layout">
+  <!-- Board -->
+  <div class="board-wrap">
+    <div class="board-topbar">
+      <div class="stat-chip" id="stat-total">合計 <b>0</b> 社</div>
+      <div class="stat-chip" id="stat-active">選考中 <b>0</b> 社</div>
+      <div class="stat-chip" id="stat-offer">内定 <b>0</b> 社</div>
+      <select class="filter-select" id="filter-status" onchange="renderCards()">
+        <option value="">すべての状況</option>
+        <option>興味あり</option>
+        <option>エントリー済み</option>
+        <option>カジュアル面談</option>
+        <option>WEBテスト</option>
+        <option>一次面接</option>
+        <option>二次面接</option>
+        <option>最終面接</option>
+        <option>内定</option>
+        <option>見送り</option>
+      </select>
+    </div>
+    <div class="cards-grid" id="cards-grid">
+      <div class="empty-state">
+        <div class="emoji">🍍</div>
+        <p>まだ企業が登録されていません<br>「企業を追加する」から始めましょう！</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Sidebar -->
+  <div class="cal-sidebar">
+    <div class="mini-cal" id="mini-cal"></div>
+  </div>
+</div>
 
 <!-- Header -->
 <header class="app-header">
@@ -1028,11 +1100,9 @@
     ⚔️ Lv.<span id="hero-level">1</span>
     <span id="hero-rank">見習い冒険者</span>
   </div>
-
   <div class="exp-bar">
     <div class="exp-fill" id="exp-fill"></div>
   </div>
-
   <div class="exp-text">
     EXP <span id="exp-current">0</span> /
     <span id="exp-next">100</span>
@@ -1101,36 +1171,6 @@ alter publication supabase_realtime
       <button class="dev-skip-btn" onclick="closeDeviceModal()">あとで</button>
       <button class="dev-skip-btn" onclick="testDeviceConnection()" id="dev-test-btn">接続テスト</button>
       <button class="dev-connect-btn" onclick="saveDeviceConfig()">保存して接続 ☁️</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<!-- Board -->
-<div class="board-wrap">
-  <div class="board-topbar">
-    <div class="stat-chip" id="stat-total">合計 <b>0</b> 社</div>
-    <div class="stat-chip" id="stat-active">選考中 <b>0</b> 社</div>
-    <div class="stat-chip" id="stat-offer">内定 <b>0</b> 社</div>
-    <select class="filter-select" id="filter-status" onchange="renderCards()">
-      <option value="">すべての状況</option>
-      <option>興味あり</option>
-      <option>エントリー済み</option>
-      <option>カジュアル面談</option>
-      <option>WEBテスト</option>
-      <option>一次面接</option>
-      <option>二次面接</option>
-      <option>最終面接</option>
-      <option>内定</option>
-      <option>見送り</option>
-    </select>
-  </div>
-  <div class="cards-grid" id="cards-grid">
-    <div class="empty-state">
-      <div class="emoji">🍍</div>
-      <p>まだ企業が登録されていません<br>「企業を追加する」から始めましょう！</p>
     </div>
   </div>
 </div>

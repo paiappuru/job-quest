@@ -115,7 +115,7 @@
       if (remoteJson !== localJson) {
         window._entries = remoteEntries;
         localStorage.setItem('todojoob_entries', remoteJson);
-        if (typeof renderCards === 'function') { entries = window._entries; renderCards(); }
+        if (typeof renderCards === 'function') { entries = window._entries; renderCards(); renderMiniCal(); }
       }
       if (data.player_exp !== undefined && data.player_exp !== window._playerExp) {
         window._playerExp = data.player_exp;
@@ -222,42 +222,42 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 auto 28px;
     background: linear-gradient(135deg, #a78bfa, #60a5fa);
     color: white;
     border: none;
     border-radius: 50px;
-    padding: 12px 28px;
-    font-size: 0.95rem;
+    padding: 11px 24px;
+    font-size: 0.88rem;
     font-family: "Meiryo", sans-serif;
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 4px 18px rgba(139,92,246,0.28);
     transition: all 0.25s;
+    margin-bottom: 28px;
   }
   .add-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 7px 24px rgba(139,92,246,0.38);
   }
-  .add-btn svg { width: 18px; height: 18px; }
+  .add-btn svg { width: 16px; height: 16px; }
 
   /* ─── EXPORT BUTTON ─── */
   .export-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 auto 28px;
     background: white;
     color: var(--text-mid);
     border: 2px solid var(--lavender-200);
     border-radius: 50px;
-    padding: 10px 22px;
+    padding: 11px 24px;
     font-size: 0.88rem;
     font-family: "Meiryo", sans-serif;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.25s;
     box-shadow: 0 2px 10px rgba(139,92,246,0.08);
+    margin-bottom: 28px;
   }
   .export-btn:hover {
     background: var(--lavender-50);
@@ -850,8 +850,9 @@
   .dev-overlay.open { display: flex; }
   .dev-modal {
     background: rgba(255,255,255,0.97); border-radius: 24px;
-    padding: 32px 28px 26px; width: 100%; max-width: 480px;
-    box-shadow: 0 16px 60px rgba(100,60,200,0.2);
+    padding: 32px 28px 26px; width: 100%; max-width: 560px;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 16px 60px rgba(100,60,200,0.18);
     border: 1px solid var(--lavender-200);
     animation: modalIn 0.28s cubic-bezier(.34,1.56,.64,1);
   }
@@ -908,14 +909,106 @@
   .dev-msg.ok  { background:#d1fae5; color:#065f46; display:block; }
   .dev-msg.err { background:#ffe4e6; color:#9f1239; display:block; }
   .dev-settings-btn {
-    display: flex; align-items: center; gap: 6px;
-    padding: 10px 20px; border-radius: 50px;
-    border: 1.5px solid var(--lavender-200); background: white;
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 24px; border-radius: 50px;
+    border: 2px solid var(--lavender-200); background: white;
     color: var(--text-mid); font-family: "Meiryo", sans-serif;
-    font-size: 0.85rem; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; box-shadow: 0 2px 10px rgba(139,92,246,0.08);
+    font-size: 0.88rem; font-weight: 700; cursor: pointer;
+    transition: all 0.25s; box-shadow: 0 2px 10px rgba(139,92,246,0.08);
+    margin-bottom: 28px;
   }
   .dev-settings-btn:hover { background: var(--lavender-50); border-color: var(--lavender-300); transform: translateY(-2px); }
+  /* ─── MINI CALENDAR ─── */
+  .mini-cal {
+    position: fixed;
+    top: 18px; right: 18px;
+    z-index: 90;
+    background: rgba(255,255,255,0.95);
+    border-radius: 18px;
+    padding: 14px 16px;
+    width: 220px;
+    border: 1px solid var(--lavender-200);
+    box-shadow: 0 4px 24px rgba(139,92,246,0.13);
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .cal-month {
+    font-size: 0.8rem; font-weight: 700; color: var(--text-dark);
+  }
+  .cal-nav {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-light); font-size: 1rem; padding: 0 3px;
+    transition: color 0.15s; line-height: 1;
+  }
+  .cal-nav:hover { color: var(--text-dark); }
+  .cal-weekdays {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+  }
+  .cal-weekday {
+    text-align: center; font-size: 0.62rem; font-weight: 700;
+    color: var(--text-light); padding: 2px 0;
+  }
+  .cal-weekday:first-child { color: #f43f5e; }
+  .cal-weekday:last-child  { color: #60a5fa; }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    font-size: 0.72rem; font-weight: 600;
+    color: var(--text-mid);
+    cursor: default;
+    position: relative;
+  }
+  .cal-day.other-month { color: #d1c9f0; }
+  .cal-day.today {
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    color: white; font-weight: 700;
+    box-shadow: 0 2px 8px rgba(139,92,246,0.3);
+  }
+  .cal-day.has-interview {
+    cursor: pointer;
+  }
+  .cal-day.has-interview:not(.today)::after {
+    content: '';
+    position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 5px; height: 5px; border-radius: 50%;
+    background: linear-gradient(135deg, #f9a8d4, #a78bfa);
+  }
+  .cal-day.today.has-interview::after {
+    content: '';
+    position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 5px; height: 5px; border-radius: 50%;
+    background: white; opacity: 0.85;
+  }
+  .cal-day:hover.has-interview { background: var(--lavender-100); }
+  .cal-day.today:hover.has-interview { background: linear-gradient(135deg, #9d7bf5, #4f96f0); }
+  .cal-tooltip {
+    position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%);
+    background: #1e1b2e; color: white;
+    border-radius: 8px; padding: 5px 9px;
+    font-size: 0.68rem; font-weight: 600;
+    white-space: nowrap; pointer-events: none;
+    z-index: 10;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .cal-day:hover .cal-tooltip { opacity: 1; }
+  .cal-legend {
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--lavender-100);
+    font-size: 0.65rem; color: var(--text-light);
+  }
+  .cal-legend-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: linear-gradient(135deg, #f9a8d4, #a78bfa); flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -924,6 +1017,9 @@
 <div class="blob blob1"></div>
 <div class="blob blob2"></div>
 <div class="blob blob3"></div>
+
+<!-- Mini Calendar -->
+<div class="mini-cal" id="mini-cal"></div>
 
 <!-- Header -->
 <header class="app-header">
@@ -1184,19 +1280,19 @@ alter publication supabase_realtime
      {exp:0,name:"見習い冒険者"},
     {exp:100,name:"駆け出し冒険者"},
 
-    {exp:300,name:"駆け出し勇者"},
+    {exp:500,name:"駆け出し勇者"},
 
-    {exp:700,name:"転職ハンター"},
+    {exp:1500,name:"転職ハンター"},
 
-    {exp:1500,name:"企業攻略士"},
+    {exp:4000,name:"企業攻略士"},
 
-    {exp:3000,name:"面接マスター"},
+    {exp:9000,name:"面接マスター"},
 
-    {exp:5000,name:"内定収集家"},
+    {exp:18000,name:"内定収集家"},
 
-    {exp:8000,name:"伝説の転職勇者"}
-   
-   
+    {exp:32000,name:"伝説の転職勇者"},
+
+    {exp:50000,name:"⚡ 転職神"},
   ];
 
   let current = levels[0];
@@ -2002,6 +2098,84 @@ alter publication supabase_realtime
   renderCards();
   updateHeroPanel();
   showDailyMessage();
+
+  // ── ミニカレンダー ────────────────────────────────────────
+  let calYear, calMonth;
+  (function initCal() {
+    const now = new Date();
+    calYear  = now.getFullYear();
+    calMonth = now.getMonth();
+  })();
+
+  function renderMiniCal() {
+    const container = document.getElementById('mini-cal');
+    if (!container) return;
+    const now   = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+    // 面接日マップ: "YYYY-MM-DD" -> [企業名, ...]
+    const interviewMap = {};
+    (entries || []).forEach(e => {
+      if (e.hasInterview && e.interviewDate) {
+        if (!interviewMap[e.interviewDate]) interviewMap[e.interviewDate] = [];
+        interviewMap[e.interviewDate].push(e.name || '?');
+      }
+    });
+
+    const firstDay    = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const daysInPrev  = new Date(calYear, calMonth, 0).getDate();
+    const monthNames  = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const weekdays    = ['日','月','火','水','木','金','土'];
+
+    let days = [];
+    for (let i = firstDay - 1; i >= 0; i--) days.push({ day: daysInPrev - i, cur: false });
+    for (let d = 1; d <= daysInMonth; d++)   days.push({ day: d, cur: true });
+    while (days.length % 7 !== 0) days.push({ day: days.length - daysInMonth - firstDay + 1, cur: false });
+
+    const weekdayHTML = weekdays.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+    const daysHTML = days.map(({ day, cur }) => {
+      if (!cur) return `<div class="cal-day other-month">${day}</div>`;
+      const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const isToday = dateStr === today;
+      const companies = interviewMap[dateStr];
+      const hasInterview = !!companies;
+      const tooltip = hasInterview
+        ? `<div class="cal-tooltip">${companies.map(n => n.length > 12 ? n.slice(0,12)+'…' : n).join('<br>')}</div>`
+        : '';
+      const cls = ['cal-day', isToday ? 'today' : '', hasInterview ? 'has-interview' : ''].filter(Boolean).join(' ');
+      const click = hasInterview ? `onclick="calDayClick('${dateStr}')"` : '';
+      return `<div class="${cls}" ${click}>${day}${tooltip}</div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="cal-header">
+        <button class="cal-nav" onclick="calPrev()">‹</button>
+        <div class="cal-month">${calYear}年 ${monthNames[calMonth]}</div>
+        <button class="cal-nav" onclick="calNext()">›</button>
+      </div>
+      <div class="cal-weekdays">${weekdayHTML}</div>
+      <div class="cal-grid">${daysHTML}</div>
+      <div class="cal-legend"><div class="cal-legend-dot"></div><span>面接予定あり</span></div>
+    `;
+  }
+
+  function calPrev() {
+    calMonth--;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderMiniCal();
+  }
+  function calNext() {
+    calMonth++;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderMiniCal();
+  }
+  function calDayClick(dateStr) {
+    const entry = entries.find(e => e.hasInterview && e.interviewDate === dateStr);
+    if (entry) openModal(entry.id);
+  }
+
+  renderMiniCal();
   
 </script>
 

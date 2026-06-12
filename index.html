@@ -134,16 +134,23 @@
         ? JSON.parse(data.entries) : (data.entries || []);
       const remoteJson = JSON.stringify(remoteEntries);
       const localJson  = JSON.stringify(window._entries || []);
-      if (remoteJson !== localJson) {
+      // エントリーはリモートの方が多い場合のみ上書き（ローカルデータを守る）
+      if (remoteJson !== localJson && remoteEntries.length >= (window._entries || []).length) {
         window._entries = remoteEntries;
         localStorage.setItem('todojoob_entries', remoteJson);
         if (typeof renderCards === 'function') { entries = window._entries; renderCards(); renderMiniCal(); }
       }
-      if (data.player_exp !== undefined && data.player_exp !== window._playerExp) {
-        window._playerExp = data.player_exp;
-        playerExp = data.player_exp;
-        localStorage.setItem('playerExp', data.player_exp);
-        if (typeof updateHeroPanel === 'function') updateHeroPanel();
+      // スコアはリモートとローカルの大きい方を使う（リセット防止）
+      if (data.player_exp !== undefined) {
+        const localExp  = window._playerExp || 0;
+        const remoteExp = Number(data.player_exp) || 0;
+        const bestExp   = Math.max(localExp, remoteExp);
+        if (bestExp !== localExp) {
+          window._playerExp = bestExp;
+          playerExp = bestExp;
+          localStorage.setItem('playerExp', bestExp);
+          if (typeof updateHeroPanel === 'function') updateHeroPanel();
+        }
       }
       updateSyncBadge('synced');
     } catch(e) { console.error('データ適用エラー:', e); }
@@ -200,10 +207,9 @@
   .app-header {
     text-align: center;
     padding: 36px 20px 20px;
-    position: relative;
   }
   .app-title {
-    font-family: 'Arial black', 'Hiragino Kaku Gothic ProN',sans-serif, 'Meiryo', 'Quicksand';
+    font-family: 'Arial black', 'Meiryo', 'Hiragino Kaku Gothic ProN', 'Quicksand', sans-serif;
     font-size: clamp(1.2rem, 4vw, 5rem);
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -211,7 +217,6 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    filter: drop-shadow(0 2px 8px rgba(124,92,191,0.18));
   }
   .app-subtitle {
     font-size: 1.25rem;

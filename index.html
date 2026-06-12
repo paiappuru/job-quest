@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ToDoJooob</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -189,7 +190,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: "Meiryo", "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
     background: linear-gradient(135deg, #e9e4f7 0%, #dbeafe 50%, #e0f2fe 100%);
     min-height: 100vh;
     color: var(--text-dark);
@@ -202,10 +203,10 @@
     position: relative;
   }
   .app-title {
-    font-family: 'Segoe UI Black';
-    font-size: clamp(1.5rem, 5vw, 5rem);
-    font-weight: 650;
-    letter-spacing: 0.04em;
+    font-family: 'Arial black', 'Hiragino Kaku Gothic ProN',sans-serif, 'Meiryo', 'Quicksand';
+    font-size: clamp(1.2rem, 4vw, 5rem);
+    font-weight: 700;
+    letter-spacing: 0.1em;
     background: linear-gradient(135deg, #7c5cbf, #4f8ef7, #60d0e0);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -214,7 +215,7 @@
   }
   .app-subtitle {
     font-size: 1.25rem;
-    color: var(--text-light);
+    color: color-mix(in srgb, var(--text-light), white 30%);
     margin-top: 4px;
     letter-spacing: 0.1em;
   }
@@ -229,7 +230,7 @@
     border-radius: 50px;
     font-size: 0.72rem;
     font-weight: 700;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     transition: all 0.3s;
   }
   .sync-badge.synced { background: #d1fae5; color: #059669; border: 1px solid #6ee7b7; }
@@ -249,7 +250,7 @@
     border-radius: 50px;
     padding: 11px 24px;
     font-size: 0.88rem;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 4px 18px rgba(139,92,246,0.28);
@@ -273,7 +274,7 @@
     border-radius: 50px;
     padding: 11px 24px;
     font-size: 0.88rem;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.25s;
@@ -305,7 +306,7 @@
     border-radius: 50px;
     font-size: 0.88rem;
     font-weight: 700;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     box-shadow: 0 6px 24px rgba(139,92,246,0.3);
     z-index: 9999;
     transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.35s;
@@ -377,7 +378,7 @@
     padding: 9px 13px;
     border: 1.5px solid var(--lavender-200);
     border-radius: 12px;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-size: 0.88rem;
     color: var(--text-dark);
     background: var(--lavender-50);
@@ -412,7 +413,7 @@
     background: var(--lavender-50);
     color: var(--text-mid);
     font-size: 0.78rem;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     cursor: pointer;
     transition: all 0.18s;
     white-space: nowrap;
@@ -440,7 +441,7 @@
     background: var(--blue-50);
     color: #4a7ec9;
     font-size: 0.78rem;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     cursor: pointer;
     transition: all 0.18s;
     position: relative;
@@ -479,7 +480,7 @@
     background: var(--blue-50);
     color: #4a7ec9;
     font-size: 0.78rem;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     outline: none;
     width: 110px;
     transition: border-color 0.2s;
@@ -546,7 +547,7 @@
     border: 1.5px solid var(--lavender-200);
     background: white;
     color: var(--text-mid);
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-size: 0.88rem;
     cursor: pointer;
     transition: all 0.18s;
@@ -558,7 +559,7 @@
     border: none;
     background: linear-gradient(135deg, #a78bfa, #60a5fa);
     color: white;
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-size: 0.88rem;
     font-weight: 700;
     cursor: pointer;
@@ -598,7 +599,7 @@
     border-radius: 50px;
     border: 1.5px solid var(--lavender-200);
     background: rgba(255,255,255,0.8);
-    font-family: "Meiryo", sans-serif;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-size: 0.78rem;
     color: var(--text-mid);
     outline: none;
@@ -763,7 +764,7 @@
   .blob3 { width: 250px; height: 250px; background: #38bdf8; top: 40%; left: 30%; }
 
   /* Everything above blobs */
-  .app-header, .page-layout, .add-btn-wrap { position: relative; z-index: 1; }
+  .app-header, .add-btn-wrap { position: relative; z-index: 1; }
 
   .add-btn-wrap { text-align: center; }
 
@@ -896,13 +897,13 @@
     display: block; background: #1e1b2e; color: #c4b5fd;
     border-radius: 8px; padding: 10px 13px; margin-top: 8px;
     font-size: 0.71rem; line-height: 1.8; white-space: pre; overflow-x: auto;
-    font-family: 'Courier New', monospace;
+    font-family: 'Courier New', 'Meiryo', monospace;
   }
   .dev-inputs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
   .dev-inputs input {
     width: 100%; padding: 9px 13px;
     border: 1.5px solid var(--lavender-200); border-radius: 12px;
-    font-family: "Meiryo", sans-serif; font-size: 0.85rem;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; font-size: 0.85rem;
     color: var(--text-dark); background: var(--lavender-50); outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
@@ -915,14 +916,14 @@
   .dev-skip-btn {
     padding: 9px 18px; border-radius: 50px;
     border: 1.5px solid var(--lavender-200); background: white;
-    color: var(--text-mid); font-family: "Meiryo", sans-serif;
+    color: var(--text-mid); font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-size: 0.85rem; cursor: pointer; transition: all 0.18s;
   }
   .dev-skip-btn:hover { background: var(--lavender-50); }
   .dev-connect-btn {
     padding: 9px 22px; border-radius: 50px; border: none;
     background: linear-gradient(135deg, #a78bfa, #60a5fa); color: white;
-    font-family: "Meiryo", sans-serif; font-size: 0.85rem; font-weight: 700;
+    font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; font-size: 0.85rem; font-weight: 700;
     cursor: pointer; box-shadow: 0 3px 14px rgba(139,92,246,0.25); transition: all 0.2s;
   }
   .dev-connect-btn:hover { transform:translateY(-1px); box-shadow: 0 5px 18px rgba(139,92,246,0.35); }
@@ -933,31 +934,29 @@
     display: flex; align-items: center; gap: 8px;
     padding: 11px 24px; border-radius: 50px;
     border: 2px solid var(--lavender-200); background: white;
-    color: var(--text-mid); font-family: "Meiryo", sans-serif;
+    color: var(--text-mid); font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
     font-size: 0.88rem; font-weight: 700; cursor: pointer;
     transition: all 0.25s; box-shadow: 0 2px 10px rgba(139,92,246,0.08);
     margin-bottom: 28px;
   }
   .dev-settings-btn:hover { background: var(--lavender-50); border-color: var(--lavender-300); transform: translateY(-2px); }
-  /* ─── LAYOUT WITH SIDEBAR CALENDAR ─── */
+  /* ─── LAYOUT ─── */
   .page-layout {
-    display: flex;
-    align-items: flex-start;
-    max-width: 1600px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 0 16px 40px;
-    gap: 20px;
+    padding: 0 20px 60px;
   }
-  .main-content { flex: 1; min-width: 0; }
-  .cal-sidebar {
-    flex-shrink: 0;
-    width: 220px;
-    position: sticky;
-    top: 20px;
+  .board-wrap {
+    padding: 0;
   }
+  .cal-sidebar { display: none; }
 
-  /* ─── MINI CALENDAR ─── */
+  /* ─── MINI CALENDAR (fixed top-right) ─── */
   .mini-cal {
+    position: fixed;
+    top: 36px;
+    right: 20px;
+    z-index: 90;
     background: rgba(255,255,255,0.95);
     border-radius: 18px;
     padding: 14px 16px;
@@ -1053,45 +1052,8 @@
 <div class="blob blob2"></div>
 <div class="blob blob3"></div>
 
-<!-- Mini Calendar -->
-
 <!-- Toast -->
 <div class="toast" id="toast"></div>
-
-<!-- Page Layout: board + calendar sidebar -->
-<div class="page-layout">
-  <!-- Board -->
-  <div class="board-wrap">
-    <div class="board-topbar">
-      <div class="stat-chip" id="stat-total">合計 <b>0</b> 社</div>
-      <div class="stat-chip" id="stat-active">選考中 <b>0</b> 社</div>
-      <div class="stat-chip" id="stat-offer">内定 <b>0</b> 社</div>
-      <select class="filter-select" id="filter-status" onchange="renderCards()">
-        <option value="">すべての状況</option>
-        <option>興味あり</option>
-        <option>エントリー済み</option>
-        <option>カジュアル面談</option>
-        <option>WEBテスト</option>
-        <option>一次面接</option>
-        <option>二次面接</option>
-        <option>最終面接</option>
-        <option>内定</option>
-        <option>見送り</option>
-      </select>
-    </div>
-    <div class="cards-grid" id="cards-grid">
-      <div class="empty-state">
-        <div class="emoji">🍍</div>
-        <p>まだ企業が登録されていません<br>「企業を追加する」から始めましょう！</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Calendar Sidebar -->
-  <div class="cal-sidebar">
-    <div class="mini-cal" id="mini-cal"></div>
-  </div>
-</div>
 
 <!-- Header -->
 <header class="app-header">
@@ -1127,6 +1089,39 @@
     ☁️ クラウド設定
   </button>
 </div>
+
+<!-- Page Layout: board + calendar sidebar -->
+<div class="page-layout">
+  <!-- Board -->
+  <div class="board-wrap">
+    <div class="board-topbar">
+      <div class="stat-chip" id="stat-total">合計 <b>0</b> 社</div>
+      <div class="stat-chip" id="stat-active">選考中 <b>0</b> 社</div>
+      <div class="stat-chip" id="stat-offer">内定 <b>0</b> 社</div>
+      <select class="filter-select" id="filter-status" onchange="renderCards()">
+        <option value="">すべての状況</option>
+        <option>興味あり</option>
+        <option>エントリー済み</option>
+        <option>カジュアル面談</option>
+        <option>WEBテスト</option>
+        <option>一次面接</option>
+        <option>二次面接</option>
+        <option>最終面接</option>
+        <option>内定</option>
+        <option>見送り</option>
+      </select>
+    </div>
+    <div class="cards-grid" id="cards-grid">
+      <div class="empty-state">
+        <div class="emoji">🍍</div>
+        <p>まだ企業が登録されていません<br>「企業を追加する」から始めましょう！</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar (fixed top-right, outside page-layout) -->
+<div class="mini-cal" id="mini-cal"></div>
 
 <!-- Device Code Modal -->
 <div class="dev-overlay" id="dev-overlay" onclick="devOverlayClick(event)">
@@ -1332,7 +1327,7 @@ alter publication supabase_realtime
 
     {exp:32000,name:"伝説の転職勇者"},
 
-    {exp:50000,name:"⚡ 転職神"},
+    {exp:50000,name:"⚡転職神"},
   ];
 
   let current = levels[0];
